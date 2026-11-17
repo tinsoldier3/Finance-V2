@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { db, applyRules } from './db.js';
-import { normalizeCsv, txHash } from './csv.js';
+import { normalizeCsv, hashRows } from './csv.js';
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -31,7 +31,12 @@ app.post('/api/accounts', wrap((req) => {
   return db.prepare(`${ACCOUNT_SQL} WHERE a.id = ? GROUP BY a.id`).get(r.lastInsertRowid);
 }));
 app.patch('/api/accounts/:id', wrap((req) => {
-  const { name, institution, type, opening_balance } = req.body;
+  let { name, institution, type, opening_balance, current_balance } = req.body;
+  if (current_balance != null && current_balance !== '') {
+    // set the starting balance so the account's computed balance equals what the bank shows today
+    const sum = db.prepare('SELECT COALESCE(SUM(amount), 0) s FROM transactions WHERE account_id = ?').get(req.params.id).s;
+    opening_balance = Math.round((Number(current_balance) - sum) * 100) / 100;
+  }
   db.prepare(`UPDATE accounts SET name = COALESCE(?, name), institution = COALESCE(?, institution),
     type = COALESCE(?, type), opening_balance = COALESCE(?, opening_balance) WHERE id = ?`)
     .run(name ?? null, institution ?? null, type ?? null, opening_balance ?? null, req.params.id);
@@ -81,23 +86,34 @@ app.patch('/api/transactions/:id', wrap((req) => {
 app.delete('/api/transactions/:id', wrap((req) => { db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id); }));
 
 // ---------- CSV import ----------
+const importOpts = (b) => ({ invertSigns: !!b.invertSigns, dateFormat: b.dateFormat === 'dmy' ? 'dmy' : 'mdy', mapping: b.mapping });
+app.post('/api/import/preview', wrap((req) => {
+  const { account_id, csv } = req.body;
+  if (!csv) throw new Error('csv required');
+  const n = normalizeCsv(csv, importOpts(req.body));
+  const hashed = account_id ? hashRows(account_id, n.rows) : [];
+  const exists = db.prepare('SELECT 1 FROM transactions WHERE hash = ?');
+  const dupes = hashed.filter((r) => exists.get(r.hash)).length;
+  const dates = n.rows.map((r) => r.date).sort();
+  return {
+    headers: n.headers, mapping: n.mapping, needsMapping: n.needsMapping, skipped: n.skipped,
+    total: n.rows.length, duplicates: dupes, fresh: n.rows.length - dupes,
+    range: dates.length ? [dates[0], dates[dates.length - 1]] : null,
+    sample: n.rows.slice(0, 8),
+  };
+}));
 app.post('/api/import', wrap((req) => {
-  const { account_id, csv, invertSigns = false } = req.body;
+  const { account_id, csv } = req.body;
   if (!account_id || !csv) throw new Error('account_id and csv required');
-  const { rows, skipped } = normalizeCsv(csv, { invertSigns });
+  const n = normalizeCsv(csv, importOpts(req.body));
+  if (n.needsMapping) throw new Error('Could not detect columns; choose them in the import dialog');
   const ins = db.prepare('INSERT OR IGNORE INTO transactions (account_id, date, description, amount, hash) VALUES (?,?,?,?,?)');
-  const seen = new Map();
   let added = 0;
   db.exec('BEGIN');
-  for (const t of rows) {
-    // identical rows within one file are distinct (e.g. two $4 coffees same day) but re-importing is a no-op
-    const key = `${t.date}|${t.description}|${t.amount}`;
-    const occ = (seen.get(key) ?? 0) + 1; seen.set(key, occ);
-    added += Number(ins.run(account_id, t.date, t.description, t.amount, txHash(account_id, t, occ)).changes);
-  }
+  for (const t of hashRows(account_id, n.rows)) added += Number(ins.run(account_id, t.date, t.description, t.amount, t.hash).changes);
   db.exec('COMMIT');
   const categorized = applyRules(true);
-  return { parsed: rows.length, added, duplicates: rows.length - added, skipped, categorized };
+  return { parsed: n.rows.length, added, duplicates: n.rows.length - added, skipped: n.skipped, categorized };
 }));
 
 // ---------- budgets ----------
