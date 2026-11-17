@@ -36,6 +36,30 @@ CREATE TABLE IF NOT EXISTS budgets (
   category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
   amount REAL NOT NULL                     -- monthly limit
 );
+CREATE TABLE IF NOT EXISTS bills (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  amount REAL NOT NULL,                    -- positive; typical amount per occurrence
+  frequency TEXT NOT NULL DEFAULT 'monthly', -- weekly|biweekly|monthly|quarterly|yearly
+  due_date TEXT NOT NULL,                  -- any known due date; other occurrences are derived from it
+  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  pattern TEXT NOT NULL DEFAULT '',        -- transactions whose description contains this count as payments (defaults to name)
+  autopay INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS goals (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  target REAL NOT NULL,
+  target_date TEXT,
+  account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL, -- if set, progress = that account's balance
+  color TEXT NOT NULL DEFAULT '#2e9e5b'
+);
+CREATE TABLE IF NOT EXISTS goal_contributions (
+  id INTEGER PRIMARY KEY,
+  goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  amount REAL NOT NULL                     -- negative = withdrawal
+);
 CREATE TABLE IF NOT EXISTS rules (
   id INTEGER PRIMARY KEY,
   pattern TEXT NOT NULL,                   -- case-insensitive "contains" match on description

@@ -5,6 +5,8 @@ A self-hosted, Mint-style personal finance tracker. No subscription, and your da
 - **Overview**: net worth, assets/debts, spending by category, income vs. spending, budget progress, recent activity
 - **Transactions**: search/filter, inline category editing, add/rename/delete, one-click "make a rule"
 - **Budgets**: monthly limit per category with progress bars (green → amber → red)
+- **Bills**: finds recurring charges in your transactions (rent, subscriptions, utilities) and tracks them with due dates, paid/overdue status, and a monthly total
+- **Goals**: savings targets with a target date, "need $X/mo", pace-based projections; track by manual contributions or link to a savings account
 - **Accounts**: checking/savings/credit/investment/loan, with **CSV import** (dedupes on re-import)
 - **Rules**: "description contains X → category Y", applied automatically on import
 
@@ -42,5 +44,5 @@ web/     React + Vite + Recharts (src/pages/*)
 ## Ideas for next
 
 - Automatic bank sync via SimpleFIN Bridge (~$15/yr) or Plaid
-- Recurring-bill detection, savings goals, category/merchant drill-downs
+- Category/merchant drill-downs, bill reminders (email/push)
 - Split transactions, tags, investment holdings, login (if exposed beyond localhost)

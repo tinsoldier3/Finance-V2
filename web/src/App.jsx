@@ -2,11 +2,13 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard.jsx';
 import Transactions from './pages/Transactions.jsx';
 import Budgets from './pages/Budgets.jsx';
+import Bills from './pages/Bills.jsx';
+import Goals from './pages/Goals.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Rules from './pages/Rules.jsx';
 
 const links = [
-  ['/', 'Overview', '◎'], ['/transactions', 'Transactions', '☰'], ['/budgets', 'Budgets', '◔'],
+  ['/', 'Overview', '◎'], ['/transactions', 'Transactions', '☰'], ['/budgets', 'Budgets', '◔'], ['/bills', 'Bills', '↻'], ['/goals', 'Goals', '★'],
   ['/accounts', 'Accounts', '▣'], ['/rules', 'Rules', '⚙'],
 ];
 
@@ -26,6 +28,8 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/budgets" element={<Budgets />} />
+          <Route path="/bills" element={<Bills />} />
+          <Route path="/goals" element={<Goals />} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/rules" element={<Rules />} />
         </Routes>

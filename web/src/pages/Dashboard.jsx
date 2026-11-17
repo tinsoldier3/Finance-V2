@@ -7,7 +7,13 @@ import MonthPicker from '../components/MonthPicker.jsx';
 export default function Dashboard() {
   const [month, setMonth] = useState(thisMonth());
   const [d, setD] = useState(null);
+  const [bills, setBills] = useState([]);
+  const [goals, setGoals] = useState([]);
   useEffect(() => { api.get(`/api/summary?month=${month}`).then(setD); }, [month]);
+  useEffect(() => {
+    api.get('/api/bills').then((r) => setBills(r.bills.filter((b) => b.status === 'overdue' || b.days_until <= 30).slice(0, 6)));
+    api.get('/api/goals').then(setGoals);
+  }, []);
   if (!d) return <p className="muted">Loading…</p>;
   const spent = d.spendingByCategory.reduce((s, x) => s + x.value, 0);
 
@@ -78,6 +84,27 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {(bills.length > 0 || goals.length > 0) && (
+        <div className="grid two">
+          <div className="card">
+            <h3>Upcoming bills <Link className="more" to="/bills">all bills</Link></h3>
+            {bills.length === 0 && <p className="muted">Nothing due in the next 30 days.</p>}
+            <table className="table"><tbody>
+              {bills.map((b) => (
+                <tr key={b.id}><td>{b.name}</td>
+                  <td className={b.status === 'overdue' ? 'neg' : b.status === 'due_soon' ? 'warnc' : 'muted'}>{b.status === 'overdue' ? 'overdue' : b.next_due.slice(5)}</td>
+                  <td className="right">{fmt2(b.amount)}</td></tr>
+              ))}
+            </tbody></table>
+          </div>
+          <div className="card">
+            <h3>Savings goals <Link className="more" to="/goals">all goals</Link></h3>
+            {goals.length === 0 && <p className="muted">No goals yet.</p>}
+            {goals.slice(0, 5).map((g) => <BudgetBar key={g.id} name={g.name} spent={g.current} budget={g.target} color={g.color} neutral />)}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <h3>Recent transactions <Link className="more" to="/transactions">view all</Link></h3>
         <table className="table"><tbody>
@@ -92,13 +119,13 @@ export default function Dashboard() {
   );
 }
 
-export function BudgetBar({ name, spent, budget }) {
+export function BudgetBar({ name, spent, budget, color, neutral }) {
   const pct = budget ? Math.min(100, (spent / budget) * 100) : 0;
-  const over = spent > budget;
+  const over = !neutral && spent > budget; // for goals, more is better, so never red
   return (
     <div className="bbar">
       <div className="row"><span>{name}</span><span className={over ? 'neg' : 'muted'}>{fmt(spent)} of {fmt(budget)}</span></div>
-      <div className="track"><div className={'fill' + (over ? ' over' : pct > 85 ? ' warn' : '')} style={{ width: pct + '%' }} /></div>
+      <div className="track"><div className={'fill' + (over ? ' over' : !neutral && pct > 85 ? ' warn' : '')} style={{ width: pct + '%', ...(color && !over ? { background: color } : {}) }} /></div>
     </div>
   );
 }

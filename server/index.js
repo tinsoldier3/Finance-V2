@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { db, applyRules } from './db.js';
 import { normalizeCsv, hashRows } from './csv.js';
+import { registerPlanning } from './planning.js';
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -146,6 +147,8 @@ app.post('/api/rules', wrap((req) => {
 }));
 app.delete('/api/rules/:id', wrap((req) => { db.prepare('DELETE FROM rules WHERE id = ?').run(req.params.id); }));
 app.post('/api/rules/apply', wrap((req) => ({ applied: applyRules(!req.body?.overwrite) })));
+
+registerPlanning(app, wrap);
 
 // ---------- dashboard summary ----------
 app.get('/api/summary', wrap((req) => {
